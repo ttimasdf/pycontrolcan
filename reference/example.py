@@ -2,7 +2,12 @@
 #https://blog.csdn.net/caimouse/article/details/51749579
 #开发人员：蔡军生（QQ：9073204） 深圳  2018-3-25
 #
-# https://blog.csdn.net/caimouse/article/details/79692118
+# --------------------- 
+# 作者：caimouse 
+# 来源：CSDN 
+# 原文：https://blog.csdn.net/caimouse/article/details/79692118 
+# 版权声明：本文为博主原创文章，转载请附上博文链接！
+
 from ctypes import *
  
 VCI_USBCAN2A = 4
@@ -82,8 +87,3 @@ if ret > 0:
  
 #关闭
 canDLL.VCI_CloseDevice(VCI_USBCAN2A, 0)
---------------------- 
-作者：caimouse 
-来源：CSDN 
-原文：https://blog.csdn.net/caimouse/article/details/79692118 
-版权声明：本文为博主原创文章，转载请附上博文链接！
