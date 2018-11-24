@@ -41,17 +41,20 @@ ret = canDLL.VCI_OpenDevice(VCI_USBCAN2A, 0, 0)
 print(ret)
 if ret != STATUS_OK:
     print('调用 VCI_OpenDevice出错\r\n')
+    raise SystemExit
  
 #初始0通道
 vci_initconfig = VCI_INIT_CONFIG(0x80000008, 0xFFFFFFFF, 0,
-                                 2, 0x00, 0x1C, 0)
+                                 2, 0x04, 0x1C, 0)  # 0x00 0x1C for 500 Kbps
 ret = canDLL.VCI_InitCAN(VCI_USBCAN2A, 0, 0, byref(vci_initconfig))
 if ret != STATUS_OK:
     print('调用 VCI_InitCAN出错\r\n')
+    raise SystemExit
  
 ret = canDLL.VCI_StartCAN(VCI_USBCAN2A, 0, 0)
 if ret != STATUS_OK:
     print('调用 VCI_StartCAN出错\r\n')
+    raise SystemExit
  
 #初始1通道
 ret = canDLL.VCI_InitCAN(VCI_USBCAN2A, 0, 1, byref(vci_initconfig))
@@ -72,7 +75,8 @@ vci_can_obj = VCI_CAN_OBJ(0x0, 0, 0, 1, 0, 0,  8, a, b)
 ret = canDLL.VCI_Transmit(VCI_USBCAN2A, 0, 0, byref(vci_can_obj), 1)
 if ret != STATUS_OK:
     print('调用 VCI_Transmit 出错\r\n')
- 
+    raise SystemExit
+
 #通道1接收数据
 a = ubyte_array(0, 0, 0, 0, 0, 0, 0, 0)
 vci_can_obj = VCI_CAN_OBJ(0x0, 0, 0, 1, 0, 0,  8, a, b)
@@ -84,6 +88,6 @@ while ret <= 0:
 if ret > 0:
     print(vci_can_obj.DataLen)
     print(list(vci_can_obj.Data))
- 
+
 #关闭
 canDLL.VCI_CloseDevice(VCI_USBCAN2A, 0)
