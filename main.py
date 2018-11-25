@@ -7,28 +7,29 @@ from controlcan import *
 
 logging.basicConfig()
 log = logging.getLogger()
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
+packet_count = 2000
 
 def t_send(device, bus_index, event_stop):
+    pkts = (VCI_CAN_OBJ * packet_count)(*(VCI_CAN_OBJ(0x233, struct.pack('<I', i)) for i in range(packet_count)))
     for i in range(100):
-        pkts = (VCI_CAN_OBJ * 10)(*(VCI_CAN_OBJ(0x233, struct.pack('<I', i)) for i in range(10)))
-        sen = device.Transmit(bus_index, cast(pkts, PVCI_CAN_OBJ), 10)
-        log.info(f"sending {sen} packets {i}")
+        start = time.perf_counter()
+        sen = device.Transmit(bus_index, cast(pkts, PVCI_CAN_OBJ), packet_count)
+        log.info(f"sending {sen} packets {i} in {time.perf_counter()-start:.8f}s")
         if event_stop.is_set():
             return
-        time.sleep(3)
-
+        time.sleep(2)
 
 def t_recv(device, bus_index, event_stop):
+    buf = (VCI_CAN_OBJ * (packet_count*10))()
     for i in range(100):
-        # pkts = (VCI_CAN_OBJ * 10)(*(VCI_CAN_OBJ(0x233, struct.pack('<I', i)) for i in range(10)))
-        buf = (VCI_CAN_OBJ * 10)()
-        recv = device.Receive(bus_index, cast(buf, PVCI_CAN_OBJ), 10, mute=True)
-        log.info(f"Receiving {recv} packets {i}")
-        for obj in buf:
-            log.debug(f"{obj.ID}: {obj.Data[:]}")
-        time.sleep(1)
+        start = time.perf_counter()
+        recv = device.Receive(bus_index, cast(buf, PVCI_CAN_OBJ), packet_count*10, mute=True)
+        log.info(f"Receiving {recv} packets {i} in {time.perf_counter()-start:.8f}s")
+        # for obj in buf:
+        #     log.info(f"{obj.ID}: {obj.Data[:]}")
+        time.sleep(2)
         if event_stop.is_set():
             return
 
@@ -61,10 +62,12 @@ def main(*args):
             time.sleep(10)
         except KeyboardInterrupt as e:
             stop.set()
+            log.info("Stopping background threads")
     # send.join()
     # recv.join()
 
     dev.CloseDevice()
+    log.info("device closed")
 
 
 if __name__ == "__main__":
