@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from ctypes import *
 import logging
+import time
 
 __all__ = [
     "VCI_INIT_CONFIG", "PVCI_INIT_CONFIG",
@@ -10,6 +11,10 @@ __all__ = [
 ]
 
 log = logging.getLogger("controlcan")
+
+VCI_RET_OK = 1
+VCI_RET_FAIL = 0
+VCI_RET_NODEVICE = -1
 
 class VCI_INIT_CONFIG(Structure):
     """
@@ -235,94 +240,121 @@ class ControlCAN(object):
         self._VCI_UsbDeviceReset.restype = c_int32
         self._VCI_UsbDeviceReset.errcheck = self._vci_errcheck()
 
+        self._vci_ignoreonce = False
+
     def _vci_errcheck(self):
         def ret(result, func, arguments):
             log.debug(f"function {func.__name__} returned {result}")
-            if result < 0:
-                raise CANError(f"Device {self.device_index} (type {self.device_type}) not found", self)
-            elif result == 0 and func is not self._VCI_Receive:
-                raise CANError(f"Operation failed", self)
+            if result == VCI_RET_NODEVICE:
+                err = f"Device {self.device_index} (type {self.device_type}) not found"
+            elif result == VCI_RET_FAIL and func is not self._VCI_Receive:
+                err = f"Operation failed"
             else:
                 return result
+            if self._vci_ignoreonce:
+                self._vci_ignoreonce = False
+                log.error(err)
+                return result
+            else:
+                raise CANError(err, self)
         return ret
 
-    def OpenDevice(self):
+    def OpenDevice(self, mute=False, block=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD Reserved
         """
+        if block:
+            while self.OpenDevice(mute=True) != VCI_RET_OK:
+                log.error("Open device failed. Retrying in 1 second")
+                time.sleep(1)
+                self.CloseDevice(mute=True)
+            return VCI_RET_OK
+
+        self._vci_ignoreonce = mute
         return self._VCI_OpenDevice(self.device_type, self.device_index, 0)
 
-    def CloseDevice(self):
+    def CloseDevice(self, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd
         """
+        self._vci_ignoreonce = mute
         return self._VCI_CloseDevice(self.device_type, self.device_index)
 
-    def InitCAN(self, CANInd, pInitConfig: VCI_INIT_CONFIG):
+    def InitCAN(self, CANInd, pInitConfig: VCI_INIT_CONFIG, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, PVCI_INIT_CONFIG pInitConfig
         """
+        self._vci_ignoreonce = mute
         return self._VCI_InitCAN(self.device_type, self.device_index, CANInd, byref(pInitConfig))
 
 
-    def ReadBoardInfo(self, pInfo: VCI_BOARD_INFO):
+    def ReadBoardInfo(self, pInfo: VCI_BOARD_INFO, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, PVCI_BOARD_INFO pInfo
         """
+        self._vci_ignoreonce = mute
         return self._VCI_ReadBoardInfo(self.device_type, self.device_index, byref(pInfo))
 
 
-    def SetReference(self, CANInd, RefType, pData):
+    def SetReference(self, CANInd, RefType, pData, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, DWORD RefType, PVOID pData
         """
+        self._vci_ignoreonce = mute
         return self._VCI_SetReference(self.device_type, self.device_index, CANInd, RefType, pData)
 
 
-    def GetReceiveNum(self, CANInd):
+    def GetReceiveNum(self, CANInd, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd
         """
+        self._vci_ignoreonce = mute
         return self._VCI_GetReceiveNum(self.device_type, self.device_index, CANInd)
 
-    def ClearBuffer(self, CANInd):
+    def ClearBuffer(self, CANInd, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd
         """
+        self._vci_ignoreonce = mute
         return self._VCI_ClearBuffer(self.device_type, self.device_index, CANInd)
 
 
-    def StartCAN(self, CANInd):
+    def StartCAN(self, CANInd, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd
         """
+        self._vci_ignoreonce = mute
         return self._VCI_StartCAN(self.device_type, self.device_index, CANInd)
 
-    def ResetCAN(self, CANInd):
+    def ResetCAN(self, CANInd, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd
         """
+        self._vci_ignoreonce = mute
         return self._VCI_ResetCAN(self.device_type, self.device_index, CANInd)
 
 
-    def Transmit(self, CANInd, pSend: PVCI_CAN_OBJ, Len):
+    def Transmit(self, CANInd, pSend: PVCI_CAN_OBJ, Len, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, PVCI_CAN_OBJ pSend, ULONG Len
         """
         log.debug(f"_VCI_Transmit({self.device_type}, {self.device_index}, {CANInd}, {pSend}, {Len})")
+        self._vci_ignoreonce = mute
         return self._VCI_Transmit(self.device_type, self.device_index, CANInd, pSend, Len)
 
-    def Receive(self, CANInd, pReceive: PVCI_CAN_OBJ, Len):
+    def Receive(self, CANInd, pReceive: PVCI_CAN_OBJ, Len, mute=False):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, PVCI_CAN_OBJ pReceive, ULONG Len, INT WaitTime
         """
         log.debug(f"_VCI_Receive({self.device_type}, {self.device_index}, {CANInd}, {pReceive}, {Len}, 0)")
+        self._vci_ignoreonce = mute
         return self._VCI_Receive(self.device_type, self.device_index, CANInd, pReceive, Len, 0)
 
-    def UsbDeviceReset(self):
+    def UsbDeviceReset(self, mute=False):
         """
         DWORD DevType, DWORD DevIndex, DWORD Reserved
         """
+        self._vci_ignoreonce = mute
         return self._VCI_UsbDeviceReset(self.device_type, self.device_index, 0)
 
 

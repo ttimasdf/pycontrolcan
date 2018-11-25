@@ -12,7 +12,7 @@ def main(*args):
     dev = ControlCAN()
     # dev.UsbDeviceReset()
     log.info("Device reset")
-    dev.OpenDevice()
+    dev.OpenDevice(block=True)
     log.info("Device opened")
     conf = VCI_INIT_CONFIG(baud=100)
     dev.InitCAN(0, conf)
@@ -28,12 +28,12 @@ def main(*args):
     buf_ptr = cast(buf, PVCI_CAN_OBJ)
 
     dev.Transmit(0, byref(packet), 1)
-    log.info("Packet sent")
+    log.info("Packet sent on CAN0")
 
     recv = 0
     while not recv:
         recv = dev.Receive(1, buf_ptr, 1)
-        log.info(f"{recv} packets received")
+        log.info(f"{recv} packets received on CAN1")
 
     print((buf[0].Data[:]))
 
@@ -46,5 +46,5 @@ if __name__ == "__main__":
     try:
         main(*sys.argv)
     except CANError as e:
-        print(f"CANbus error: {e}")
         e.device.CloseDevice()
+        raise
