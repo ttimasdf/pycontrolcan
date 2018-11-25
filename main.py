@@ -69,10 +69,10 @@ def main(*args):
     log.info("CAN1 init and started")
 
     stop = threading.Event()
-    queue_send = queue.Queue()
-    queue_recv = queue.Queue()
-    send = threading.Thread(target=t_send, args=(dev, 0, stop, queue_send))
-    recv = threading.Thread(target=t_recv, args=(dev, 0, stop, queue_recv))
+    qsend = queue.Queue()
+    qrecv = queue.Queue()
+    send = threading.Thread(target=t_send, args=(dev, 0, stop, qsend))
+    recv = threading.Thread(target=t_recv, args=(dev, 0, stop, qrecv))
     send.start()
     recv.start()
 
