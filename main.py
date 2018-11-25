@@ -1,6 +1,8 @@
-from controlcan import ControlCAN, VCI_CAN_OBJ, VCI_INIT_CONFIG, CANError
 import logging
 import time
+from ctypes import cast, byref
+
+from controlcan import *
 
 logging.basicConfig()
 log = logging.getLogger()

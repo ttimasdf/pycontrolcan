@@ -2,6 +2,12 @@
 from ctypes import *
 import logging
 
+__all__ = [
+    "VCI_INIT_CONFIG", "PVCI_INIT_CONFIG",
+    "VCI_CAN_OBJ", "PVCI_CAN_OBJ",
+    "VCI_BOARD_INFO", "PVCI_BOARD_INFO",
+    "ControlCAN", "CANError"
+]
 
 log = logging.getLogger("controlcan")
 
@@ -65,6 +71,8 @@ class VCI_INIT_CONFIG(Structure):
             t0, t1 = self.TIMING_REGS[baud]
         return super().__init__(pid, mask, 0, filter_mode, t0, t1, mode)
 
+PVCI_INIT_CONFIG = POINTER(VCI_INIT_CONFIG)
+
 
 class VCI_CAN_OBJ(Structure):
     """
@@ -105,6 +113,7 @@ class VCI_CAN_OBJ(Structure):
 
 PVCI_CAN_OBJ = POINTER(VCI_CAN_OBJ)
 
+
 class VCI_BOARD_INFO(Structure):
     """
     typedef  struct  _VCI_BOARD_INFO{
@@ -130,6 +139,8 @@ class VCI_BOARD_INFO(Structure):
 		("str_hw_Type", c_uint8 * 40),
 		("Reserved", c_ushort * 4),
     ]
+
+PVCI_BOARD_INFO = POINTER(VCI_BOARD_INFO)
 
 
 class ControlCAN(object):
