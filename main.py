@@ -21,6 +21,7 @@ def t_send(device, bus_index, event_stop, q):
                 break
             else:
                 pkts[i].ID = pid
+                import pdb; pdb.set_trace()
                 if isinstance(data, int):
                     pkts[i].Data = (c_ubyte*8)(*struct.pack('<I', data))
                 elif isinstance(data, bytes):
@@ -49,7 +50,6 @@ def t_recv(device, bus_index, event_stop, q):
         if event_stop.is_set():
             return
         time.sleep(0.5)
-
 
 
 def main(*args):
@@ -83,6 +83,24 @@ def main(*args):
             import pdb
         else:
             have_ptpython = True
+
+
+        def put(id, data):
+            qsend.put((id, data))
+
+        def putall(plist):
+            for p in plist:
+                qsend.put(p)
+
+        def get():
+            while not qrecv.empty():
+                buf.append(qrecv.get())
+                qrecv.task_done()
+
+        buf = []
+
+        def filterid(pid):
+            return list(filter(lambda i: i[0]==pid, buf))
 
         log.info("to stop background threads, run stop.set()")
         if have_ptpython:
