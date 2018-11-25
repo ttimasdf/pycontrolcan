@@ -9,7 +9,7 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 def main(*args):
-    dev = ControlCAN(device_index=0)
+    dev = ControlCAN()
     # dev.UsbDeviceReset()
     log.info("Device reset")
     dev.OpenDevice()
