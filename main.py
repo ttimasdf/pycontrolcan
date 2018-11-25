@@ -1,4 +1,5 @@
 import logging
+import pickle
 import queue
 import struct
 import time
@@ -96,6 +97,14 @@ def main(*args):
             while not qrecv.empty():
                 buf.append(qrecv.get())
                 qrecv.task_done()
+
+        def save(filename):
+            with open(filename, "wb") as f:
+                pickle.dump(buf, f)
+
+        def load(filename):
+            with open(filename, "rb") as f:
+                return pickle.load(f)
 
         buf = []
 
