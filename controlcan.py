@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+ControlCAN library wrapper for ZLG and CANalyst-II
+
+32/64 bits compatible.
+"""
+
+__author__      = "ttimasdf"
+__copyright__   = "Copyright 2018, ttimasdf. All rights reserved"
+__license__     = "MIT"
+
+
 from ctypes import *
 import logging
 import time
