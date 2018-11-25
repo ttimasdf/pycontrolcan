@@ -11,7 +11,7 @@ log.setLevel(logging.INFO)
 def main(*args):
     dev = ControlCAN()
     # dev.UsbDeviceReset()
-    log.info("Device reset")
+    # log.info("Device reset")
     dev.OpenDevice(block=True)
     log.info("Device opened")
     conf = VCI_INIT_CONFIG(baud=100)
