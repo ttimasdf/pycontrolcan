@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 from ctypes import *
+import logging
+
+
+log = logging.getLogger("controlcan")
 
 class VCI_INIT_CONFIG(Structure):
     """
@@ -9,7 +13,7 @@ class VCI_INIT_CONFIG(Structure):
         DWORD	Reserved;
         UCHAR	Filter;  // 0/1 接收所有帧, 2: 只收标准帧, 3: 只收扩展帧
         UCHAR	Timing0; // BTR0 寄存器，指示波特率
-        UCHAR	Timing1; // BTR1 寄存器，指示波特率	
+        UCHAR	Timing1; // BTR1 寄存器，指示波特率
         UCHAR	Mode;
     }VCI_INIT_CONFIG,*PVCI_INIT_CONFIG;
     """
@@ -87,13 +91,18 @@ class VCI_CAN_OBJ(Structure):
         ("Data", c_ubyte * 8),
         ("Reserved", c_ubyte * 3)
     ]
+    _reserved_buf = (c_ubyte * 3)()
 
     def __init__(self, pid, data, timestamp=0, timeflag=0, sendtype=1, remoteflag=0, extended=0):
         assert isinstance(data, bytes) and len(data) <= 8, "VCI_CAN_OBJ only support byte array data under 8 bytes"
 
-        return super().__init__(pid, timestamp, 
+        log.debug(f"{self.__class__.__name__}.init {pid} {timestamp}"
+            f"{timeflag} {sendtype} {remoteflag} {extended}"
+            f"{len(data)} {data} {VCI_CAN_OBJ._reserved_buf}")
+        return super().__init__(pid, timestamp,
             timeflag, sendtype, remoteflag, extended,
-            len(data), (c_ubyte * 8)(*data), (c_ubyte * 3)())
+            len(data), (c_ubyte * 8)(*data), VCI_CAN_OBJ._reserved_buf)
+
 PVCI_CAN_OBJ = POINTER(VCI_CAN_OBJ)
 
 class VCI_BOARD_INFO(Structure):
@@ -108,7 +117,7 @@ class VCI_BOARD_INFO(Structure):
 		CHAR	str_Serial_Num[20];
 		CHAR	str_hw_Type[40];
 		USHORT	Reserved[4];
-    } VCI_BOARD_INFO,*PVCI_BOARD_INFO; 
+    } VCI_BOARD_INFO,*PVCI_BOARD_INFO;
     """
     _fields_ = [
 		("hw_Version", c_ushort),
@@ -140,9 +149,9 @@ class ControlCAN(object):
             self._l = cdll.LoadLibrary(str(Path(library).resolve()))
         else:
             raise NotImplementedError(f"ControlCAN not available on {sys.platform}!")
-        
+
         if device_type != self.TYPE_VCI_USBCAN2:
-            raise NotImplementedError(f"device type {device_type} may not be supported")
+            log.warning(f"device type {device_type} may not be supported")
 
         self.device_type = device_type
         self.device_index = device_index
@@ -217,10 +226,11 @@ class ControlCAN(object):
 
     def _vci_errcheck(self):
         def ret(result, func, arguments):
+            log.debug(f"function {func.__name__} returned {result}")
             if result < 0:
-                raise CANError(f"Device {self.device_index} (type {self.device_type}) not found")
+                raise CANError(f"Device {self.device_index} (type {self.device_type}) not found", self)
             elif result == 0 and func is not self._VCI_Receive:
-                raise CANError(f"Operation failed")
+                raise CANError(f"Operation failed", self)
             else:
                 return result
         return ret
@@ -288,14 +298,14 @@ class ControlCAN(object):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, PVCI_CAN_OBJ pSend, ULONG Len
         """
-        print(self.device_type, self.device_index, CANInd, pSend, Len)
+        log.debug(f"_VCI_Transmit({self.device_type}, {self.device_index}, {CANInd}, {pSend}, {Len})")
         return self._VCI_Transmit(self.device_type, self.device_index, CANInd, pSend, Len)
 
     def Receive(self, CANInd, pReceive: PVCI_CAN_OBJ, Len):
         """
         DWORD DeviceType, DWORD DeviceInd, DWORD CANInd, PVCI_CAN_OBJ pReceive, ULONG Len, INT WaitTime
         """
-        print(self.device_type, self.device_index, CANInd, pReceive, Len, 0)
+        log.debug(f"_VCI_Receive({self.device_type}, {self.device_index}, {CANInd}, {pReceive}, {Len}, 0)")
         return self._VCI_Receive(self.device_type, self.device_index, CANInd, pReceive, Len, 0)
 
     def UsbDeviceReset(self):
@@ -307,7 +317,9 @@ class ControlCAN(object):
 
 class CANError(Exception):
     """All CAN Bus related errors."""
-    pass
+    def __init__(self, msg, device):
+        super().__init__(msg)
+        self.device = device
 
 '''
 正则替换函数声明为初始化代码的步骤：
@@ -338,7 +350,7 @@ self._VCI_OpenDevice.errcheck = self._vci_errcheck()
 def $2(self, $3):\n    return self._$2($3)
 逗号后面加空格
 ,(?! )
-, 
+, （末尾空格）
 去掉类型定义
 (\(|, ?)(\w+) ([\w_]+)
 $1$3
@@ -347,7 +359,7 @@ $1$3
     """\n    $2\n    """\n$1($2)
 去掉VCI
 def VCI_
-def 
+def （末尾空格）
 
 例：
 输入：
