@@ -12,14 +12,17 @@ log.setLevel(logging.INFO)
 packet_count = 2000
 
 def t_send(device, bus_index, event_stop):
-    pkts = (VCI_CAN_OBJ * packet_count)(*(VCI_CAN_OBJ(0x233, struct.pack('<I', i)) for i in range(packet_count)))
-    for i in range(100):
-        start = time.perf_counter()
-        sen = device.Transmit(bus_index, cast(pkts, PVCI_CAN_OBJ), packet_count)
-        log.info(f"sending {sen} packets {i} in {time.perf_counter()-start:.8f}s")
-        if event_stop.is_set():
-            return
-        time.sleep(2)
+    bulk_count = 100
+    while True:
+        for pid in range(0xfff):
+            pkts = send_int(pid, 0xffffffff, bulk_count)
+            for rep in range(2):
+                start = time.perf_counter()
+                sen = device.Transmit(bus_index, cast(pkts, PVCI_CAN_OBJ), bulk_count)
+                log.info(f"sending {bulk_count}*{rep} packets to id {pid:08x} in {time.perf_counter()-start:.8f}s")
+                if event_stop.is_set():
+                    return
+                time.sleep(0.01)
 
 def t_recv(device, bus_index, event_stop):
     buf = (VCI_CAN_OBJ * (packet_count*10))()
@@ -27,11 +30,18 @@ def t_recv(device, bus_index, event_stop):
         start = time.perf_counter()
         recv = device.Receive(bus_index, cast(buf, PVCI_CAN_OBJ), packet_count*10, mute=True)
         log.info(f"Receiving {recv} packets {i} in {time.perf_counter()-start:.8f}s")
-        # for obj in buf:
-        #     log.info(f"{obj.ID}: {obj.Data[:]}")
-        time.sleep(2)
+        for n in range(recv):
+            obj = buf[n]
+            log.debug(f"{obj.ID:08x}: {obj.Data[:]}")
+        time.sleep(0.3)
         if event_stop.is_set():
             return
+
+def send_int(id, num, times):
+    return (VCI_CAN_OBJ * times)(*(VCI_CAN_OBJ(id, struct.pack('<I', num)) for i in range(times)))
+
+def recv_handler(id, data):
+    pass
 
 
 def main(*args):
@@ -42,24 +52,26 @@ def main(*args):
     log.info("Device opened")
     conf = VCI_INIT_CONFIG(baud=100)
     dev.InitCAN(0, conf)
+    time.sleep(0.1)
     dev.StartCAN(0)
     log.info("CAN0 init and started")
     dev.InitCAN(1, conf)
+    time.sleep(0.1)
     dev.StartCAN(1)
     log.info("CAN1 init and started")
 
     stop = threading.Event()
     send = threading.Thread(target=t_send, args=(dev, 0, stop))
-    recv = threading.Thread(target=t_recv, args=(dev, 1, stop))
+    recv = threading.Thread(target=t_recv, args=(dev, 0, stop))
     send.start()
-    recv.start()
+    # recv.start()
 
     while send.is_alive() or recv.is_alive():
-        log.info("still waiting for finish")
+        if stop.is_set():
+            log.info("still waiting for finish")
         # Use time.sleep instead of join to void signal stuck because of GIL
-        # TODO send signal to threads to stop them
         try:
-            time.sleep(10)
+            time.sleep(1)
         except KeyboardInterrupt as e:
             stop.set()
             log.info("Stopping background threads")
@@ -73,6 +85,8 @@ def main(*args):
 if __name__ == "__main__":
     import sys
 
+    if '-d' in sys.argv:
+        log.setLevel(logging.DEBUG)
     try:
         main(*sys.argv)
     except CANError as e:

@@ -120,9 +120,9 @@ class VCI_CAN_OBJ(Structure):
     def __init__(self, pid, data, timestamp=0, timeflag=0, sendtype=1, remoteflag=0, extended=0):
         assert isinstance(data, bytes) and len(data) <= 8, "VCI_CAN_OBJ only support byte array data under 8 bytes"
 
-        log.debug(f"{self.__class__.__name__}.init {pid} {timestamp}"
-            f"{timeflag} {sendtype} {remoteflag} {extended}"
-            f"{len(data)} {data} {VCI_CAN_OBJ._reserved_buf}")
+        # log.debug(f"{self.__class__.__name__}.init {pid} {timestamp}"
+        #     f"{timeflag} {sendtype} {remoteflag} {extended}"
+        #     f"{len(data)} {data} {VCI_CAN_OBJ._reserved_buf}")
         return super().__init__(pid, timestamp,
             timeflag, sendtype, remoteflag, extended,
             len(data), (c_ubyte * 8)(*data), VCI_CAN_OBJ._reserved_buf)
